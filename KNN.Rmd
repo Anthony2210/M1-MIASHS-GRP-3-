@@ -1,5 +1,5 @@
 ---
-title: "datascience knn"
+title: "Modele KNN"
 output: html_document
 date: "2025-09-17"
 ---
@@ -8,9 +8,9 @@ date: "2025-09-17"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Choix du modeles knn
+# Choix du modele KNN
 
-##1. Chargement des librairies
+## 1. Chargement des librairies
 
 ```{r cars}
 
@@ -24,106 +24,171 @@ library(pROC)
 ```
 
 
-##2. Lecture des données
-
+## 2. Lecture des données
 
 ```{r}
 
-farms_train <- read.csv("farms_train.csv", sep=",", dec=".", header=TRUE)
-farms_test  <- read.csv("farms_test.csv",  sep=",", dec=".", header=TRUE)
+farms_train <- read.csv("/Users/akkouh/Desktop/Modele KNN/farms_train.csv", sep=",", dec=".", header=TRUE)
+farms_test  <- read.csv("/Users/akkouh/Desktop/Modele KNN/farms_test.csv",  sep=",", dec=".", header=TRUE)
 
 # Aperçu rapide
+
 dim(farms_train)
 summary(farms_train)
 table(farms_train$DIFF)
 
-## 3. Statistiques descriptives et graphiques
+```
 
 
+## 3. Statistiques descriptives
+
+```{r}
+
+# Histogramme des classes
 ggplot(farms_train, aes(x=factor(DIFF))) +
   geom_bar(fill="blue") +
-  labs(title="Répartition des exploitations (0 = saine, 1 = défaillante)",
+  labs(title="Répartition des exploitations (0 = défaillante, 1 = saine)",
        x="DIFF", y="Effectif") +
   theme_minimal()
 
+# Matrice de corrélations entre variables explicatives
 cor_mat <- cor(farms_train[, -1])
 corrplot(cor_mat, method="color", type="upper", tl.col="black")
 
-## 4. Découpage apprentissage / validation
+```
+
+
+## 4. Découpage apprentissage/validation
+
+```{r}
 
 set.seed(123)
 trainIndex <- createDataPartition(farms_train$DIFF, p=0.7, list=FALSE)
 train_data <- farms_train[trainIndex, ]
 valid_data <- farms_train[-trainIndex, ]
 
+```
+
+
 ## 5. Normalisation min-max
+
+```{r}
 
 normalize <- function(x) { (x - min(x)) / (max(x) - min(x)) }
 train_scaled <- as.data.frame(lapply(train_data[, -1], normalize))
 valid_scaled <- as.data.frame(lapply(valid_data[, -1], normalize))
 test_scaled  <- as.data.frame(lapply(farms_test,  normalize))
 
-train_scaled$DIFF <- factor(train_data$DIFF, levels=c(0,1), labels=c("saine","defaillante"))
-valid_scaled$DIFF <- factor(valid_data$DIFF, levels=c(0,1), labels=c("saine","defaillante"))
+train_scaled$DIFF <- factor(train_data$DIFF, levels=c(0,1), labels=c("defaillante","saine"))
+valid_scaled$DIFF <- factor(valid_data$DIFF, levels=c(0,1), labels=c("defaillante","saine"))
 
 x_train <- train_scaled[, -ncol(train_scaled)]
 y_train <- train_scaled$DIFF
 x_valid <- valid_scaled[, -ncol(valid_scaled)]
 y_valid <- valid_scaled$DIFF
 
-## 6. Recherche du meilleur K
+```
 
-maxK <- 50
+
+## 6. ROC avec un K fixé
+
+```{r}
+
+# Test avec un K choisi manuellement (ici K=5)
+k_fix <- 5
+cat(" ROC avec K fixé =", k_fix, "\n")
+
+knn_pred_fix <- knn(train=x_train, test=x_valid, cl=y_train, k=k_fix)
+confusionMatrix(knn_pred_fix, y_valid)
+
+# Probas pour ROC
+knn_pred_prob_fix <- attr(knn(train=x_train, test=x_valid, cl=y_train, k=k_fix, prob=TRUE), "prob")
+prob_saine_fix <- ifelse(knn_pred_fix=="saine", knn_pred_prob_fix, 1-knn_pred_prob_fix)
+
+# Courbe ROC
+roc_fix <- roc(response = y_valid, predictor = prob_saine_fix, levels=c("defaillante","saine"))
+plot(roc_fix, col="blue", main=paste("Courbe ROC avec K =", k_fix), legacy.axes=TRUE)
+auc(roc_fix)
+
+```
+
+
+## 7. Recherche du meilleur K
+
+```{r}
+
+maxK <- 20
 txErreur <- numeric(maxK)
 
 for (i in 1:maxK) {
   knn_pred <- knn(train=x_train, test=x_valid, cl=y_train, k=i)
-  txErreur[i] <- mean(knn_pred != y_valid)*100
+  txErreur[i] <- mean(knn_pred != y_valid)*100  # taux d’erreur
 }
 
-plot(txErreur, type="b", col="blue", pch=20,
+# Visualisation du taux d’erreur
+plot(1:maxK, txErreur, type="b", col="darkgreen", pch=20,
      xlab="K (voisins)", ylab="Taux d'erreur (%)",
-     main="Erreur vs Nombre de voisins")
+     main="Erreur en fonction de K")
 abline(h=min(txErreur), col="red", lty=2)
 
-best_k_loop <- which.min(txErreur)
-cat(" Meilleur K trouvé automatiquement =", best_k_loop, 
-    "avec erreur =", min(txErreur), "%\n")
+# K qui minimise le taux d’erreur
+best_k_err <- which.min(txErreur)
+cat(" Meilleur K selon l'accuracy =", best_k_err, 
+    "avec une accuracy =", 100 - min(txErreur), "%\n")
 
-## 7. Choix final de K = 5
+# Confusion matrix + ROC avec ce meilleur K
+knn_pred_best_err <- knn(train=x_train, test=x_valid, cl=y_train, k=best_k_err, prob=TRUE)
+confusionMatrix(knn_pred_best_err, y_valid)
 
-k_fix <- 5
-cat(" K =", k_fix, "\n")
+# Pour la courbe ROC 
+knn_prob_best_err <- attr(knn_pred_best_err, "prob")
+prob_saine_best_err <- ifelse(knn_pred_best_err=="saine", knn_prob_best_err, 1-knn_prob_best_err)
 
-knn_pred_best <- knn(train=x_train, test=x_valid, cl=y_train, k=k_fix)
-confusionMatrix(knn_pred_best, y_valid)
+roc_best_err <- roc(response = y_valid, predictor = prob_saine_best_err, levels=c("defaillante","saine"))
+plot(roc_best_err, col="blue", main=paste("ROC avec meilleur K =", best_k_err), legacy.axes=TRUE)
+auc(roc_best_err)
 
-
-# 8. Courbe ROC
-
-knn_pred_prob <- attr(knn(train=x_train, test=x_valid, cl=y_train, k=k_fix, prob=TRUE), "prob")
-knn_pred_class <- knn_pred_best
-prob_defaillante <- ifelse(knn_pred_class=="defaillante", knn_pred_prob, 1-knn_pred_prob)
-
-roc_obj <- roc(response = y_valid, predictor = prob_defaillante, levels=c("saine","defaillante"))
-plot(roc_obj, col="blue", main="Courbe ROC - Validation", legacy.axes=TRUE)
-auc(roc_obj)
+```
 
 
-# 9. Prédictions finales 
+## 8. ROC + Confusion Matrix avec le meilleur K (AUC)
+
+```{r}
+
+knn_pred_best <- knn(train=x_train, test=x_valid, cl=y_train, k=best_k_err, prob=TRUE)
+confusionMatrix(knn_pred_best, y_valid) 
+
+# Récupération des probabilités pour tracer la ROC
+knn_prob_best <- attr(knn_pred_best, "prob")
+prob_saine_best <- ifelse(knn_pred_best=="saine", knn_prob_best, 1-knn_prob_best)
+
+# Courbe ROC avec le K optimal 
+roc_best <- roc(response = y_valid, predictor = prob_saine_best, levels=c("defaillante","saine"))
+plot(roc_best, col="red", main=paste("Courbe ROC avec meilleur K =", best_k_err), legacy.axes=TRUE)
+auc(roc_best)
+
+```
+
+
+## 9. Prédictions finales
+
+```{r}
 
 x_all <- train_scaled[, -ncol(train_scaled)]
 y_all <- train_scaled$DIFF
 x_test <- test_scaled
 
-knn_final <- knn(train=x_all, test=x_test, cl=y_all, k=k_fix)
+# Utiliser le meilleur K 
+knn_final <- knn(train=x_all, test=x_test, cl=y_all, k=best_k_err)
 
 soumission <- data.frame(ID = 1:nrow(farms_test),
-                         DIFF = ifelse(knn_final=="saine",0,1))
+                         DIFF = ifelse(knn_final=="saine",1,0)) # 1 = saine, 0 = défaillante
+
+# Vérification
 head(soumission)
-
-write.csv(soumission, "soumission.csv", row.names=FALSE)
-
 table(soumission$DIFF)
-prop.table(table(soumission$DIFF))
+
+# Sauvegarde du fichier sur le bureau
+write.csv(soumission, "/Users/akkouh/Desktop/soumission.csv", row.names=FALSE)
+
 ```
