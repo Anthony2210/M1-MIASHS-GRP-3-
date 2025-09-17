@@ -1,0 +1,127 @@
+---
+title: "ACP"
+output: html_document
+---
+#
+
+```{r}
+#install.packages("FactoMineR")
+#install.packages("factoextra")   
+
+library(FactoMineR)
+library(factoextra)
+
+```
+
+# 
+```{r}
+
+farms_train <- read_csv("farms_train.csv")
+View(farms_train)
+```
+#
+
+```{r}
+X <- farms_train[, c("R2","R7","R8","R17","R22","R32")]
+res.acp <- PCA(X, scale.unit=TRUE, graph=FALSE)
+
+```
+#
+
+```{r}
+
+res.acp$eig
+
+```
+#
+
+```{r}
+library(factoextra)
+
+
+fviz_eig(res.acp, addlabels = TRUE, ylim = c(0, 100))
+
+```
+#
+
+```{r}
+eig <- res.acp$eig
+lambda  <- eig[, "eigenvalue"]
+pct     <- eig[, "percentage of variance"]
+cum_pct <- eig[, "cumulative percentage of variance"]
+
+#Seuil d'inertie cumulée
+seuil <- 80
+q_cum <- which(cum_pct >= seuil)[1]
+
+#Kaiser (lambda > 1)
+q_kaiser <- sum(lambda > 1)
+
+cat("Nombre de composantes par seuil d'inertie (", seuil, "%) :", q_cum, "\n")
+cat("Nombre de composantes par règle de Kaiser (λ>1) :", q_kaiser, "\n")
+
+# Choix 'conservateur' = min des deux
+q <- min(q_cum, q_kaiser)
+cat("→ Je retiens q =", q, "composantes (compromis). \n")
+
+```
+# ACP + KNN
+
+```{r}
+
+library(caret)
+set.seed(123)
+
+df <- read.csv("farms_train.csv")
+
+# DIFF en facteur avec niveaux textuels 
+df$DIFF <- factor(df$DIFF, levels=c(0,1), labels=c("Defaillante","Saine"))
+
+# Variables explicatives
+vars <- c("R2","R7","R8","R17","R22","R32")
+
+# KNN optimisé en CV, avec centrage, réduction ET PCA dans preProcess
+fit <- train(
+  DIFF ~ .,
+  data = df[, c("DIFF", vars)],
+  method = "knn",
+  trControl = trainControl(method="repeatedcv", number=5, repeats=3,
+                           classProbs=TRUE, summaryFunction=twoClassSummary),
+  metric = "ROC",                        
+  preProcess = c("center","scale","pca"),
+  tuneLength = 10                        
+)
+
+fit$bestTune      # meilleur k
+max(fit$results$ROC)  # meilleure AUC CV
+
+```
+
+#
+
+```{r}
+confusionMatrix(predict(fit, df[, vars]), df$DIFF)
+
+```
+
+
+#
+
+```{r}
+fit$bestTune      # k optimal
+max(fit$results$ROC)  # AUC associé
+
+```
+#
+
+```{r}
+confusionMatrix(predict(fit, df[, vars]), df$DIFF)
+
+```
+
+
+ 
+ 
+ 
+ 
+ 
