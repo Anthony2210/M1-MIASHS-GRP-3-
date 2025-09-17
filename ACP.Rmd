@@ -13,36 +13,40 @@ library(factoextra)
 
 ```
 
-# 
+#  Chargement des donées d'apprentissage
 ```{r}
 
 farms_train <- read_csv("farms_train.csv")
-View(farms_train)
+head(farms_train)
 ```
 #
 
 ```{r}
+# création de x comme sous-ensemble des 6 variables
 X <- farms_train[, c("R2","R7","R8","R17","R22","R32")]
+#ACP normée
 res.acp <- PCA(X, scale.unit=TRUE, graph=FALSE)
 
 ```
-#
+# L’ACP montre que la première composante explique 36 % de l’information, les deux premières ensemble 53,5 %, et les trois premières environ 70 %. On peut donc résumer les 6 variables initiales par seulement 3 composantes principales, ce qui permet de réduire la dimension du problème tout en conservant la majorité de l’information.
 
 ```{r}
 
 res.acp$eig
 
 ```
-#
+# Ce graphique affiche le pourcentage de variance expliquée par chaque composante et la variance cumulée.
+#Le graphique montre que la première composante explique environ 36 % de l’inertie, la deuxième 17 %, et la troisième 16 %. On voit que la courbe chute fortement entre la première composante et la deuxième mais les deux font environ 53% donc on peut prendre la troisième pour avoir 70% pour représenter l’information des six variables initiales.
 
 ```{r}
-library(factoextra)
 
+library(factoextra)
+# pour produire le scree plot
 
 fviz_eig(res.acp, addlabels = TRUE, ylim = c(0, 100))
 
 ```
-#
+# Avec ce code, deux critères sont testés : le seuil d’inertie cumulée fixé à 80 %, qui suggère 4 composantes et la règle de Kaiser qui suggère 2 composantes. Nous avons retenu le plus petit nombre proposé, soit 2 composantes principales.
 
 ```{r}
 eig <- res.acp$eig
@@ -56,17 +60,18 @@ q_cum <- which(cum_pct >= seuil)[1]
 
 #Kaiser (lambda > 1)
 q_kaiser <- sum(lambda > 1)
-
+# Affficher les résultats
 cat("Nombre de composantes par seuil d'inertie (", seuil, "%) :", q_cum, "\n")
 cat("Nombre de composantes par règle de Kaiser (λ>1) :", q_kaiser, "\n")
 
 # Choix 'conservateur' = min des deux
 q <- min(q_cum, q_kaiser)
-cat("→ Je retiens q =", q, "composantes (compromis). \n")
+cat("→ Je retiens q =", q, "composantes")
 
 ```
 # ACP + KNN
 
+#Le nombre optimal de voisins trouvé est k = 23 et l'AUC obtenue est d’environ 0.88.
 ```{r}
 
 library(caret)
@@ -88,7 +93,7 @@ fit <- train(
   trControl = trainControl(method="repeatedcv", number=5, repeats=3,
                            classProbs=TRUE, summaryFunction=twoClassSummary),
   metric = "ROC",                        
-  preProcess = c("center","scale","pca"),
+  preProcess = c("center","scale","pca"), # on préfère laisser caret décider de prendre les composantes qu'il veut même si par la règle de kaiser et le sueil d'inertie on a pris q=2
   tuneLength = 10                        
 )
 
@@ -97,28 +102,42 @@ max(fit$results$ROC)  # meilleure AUC CV
 
 ```
 
-#
-
-```{r}
-confusionMatrix(predict(fit, df[, vars]), df$DIFF)
-
-```
-
 
 #
 
 ```{r}
-fit$bestTune      # k optimal
-max(fit$results$ROC)  # AUC associé
+library(readr)
 
-```
+# Lecture de  train, test et ex_soumission
+train <- read_csv("farms_train.csv")
+test  <- read_csv("farms_test.csv")
+ex    <- read_csv("ex_soumission.csv")   
+
+# 
+train$DIFF <- factor(train$DIFF, levels=c(0,1), labels=c("Defaillante","Saine"))
+
+# 
+vars <- c("R2","R7","R8","R17","R22","R32")
+library(caret); set.seed(123)
+fit_final <- train(
+  DIFF ~ ., data = train[, c("DIFF", vars)], method = "knn",
+  trControl = trainControl(method="cv", number=5, classProbs=TRUE, summaryFunction=twoClassSummary),
+  metric = "ROC", preProcess = c("center","scale","pca"), tuneLength = 10
+)
+
+# Prédictions test
+preds     <- predict(fit_final, newdata = test[, vars])
+preds_num <- ifelse(preds == "Saine", 1, 0)
+
 #
+submission <- data.frame(ID = ex$ID, DIFF = preds_num)
 
-```{r}
-confusionMatrix(predict(fit, df[, vars]), df$DIFF)
+# Sauvegarde
+readr::write_csv(submission, "soumission_knn_pca.csv")
+head(submission)
+
 
 ```
-
 
  
  
