@@ -1,5 +1,5 @@
 ---
-title: "DataScienceC"
+title: "DataScienceChallenge"
 output: html_document
 ---
 # Dans un jeu de données de 6 variables on veut prédire si elles sont saines DIFF=0 ou défaillantes DIFF=1
