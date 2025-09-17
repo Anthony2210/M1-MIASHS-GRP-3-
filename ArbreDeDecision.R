@@ -35,10 +35,10 @@ cat("Accuracy :", round(accuracy, 4), "\n")
 
 
 
-# --- Pré-requis ---
+
 library(rpart)
 
-# S’assurer que la cible est bien un facteur
+
 train$DIFF <- as.factor(train$DIFF)
 
 # Entraînement sur tout le train
@@ -47,9 +47,9 @@ tree_full <- rpart(DIFF ~ ., data = train, method = "class", cp = 0.01)
 # Prédiction sur le test
 pred_test <- predict(tree_full, test, type = "class")
 
-# ➜ Création d’un identifiant séquentiel si aucune colonne id
+
 submission <- data.frame(
-  id   = seq_len(nrow(test)),  # 1, 2, 3, ...
+  id   = seq_len(nrow(test)), 
   DIFF = pred_test
 )
 
@@ -70,6 +70,7 @@ abline(a = 0, b = 1, lty = 2)
 
 auc_rocr <- performance(pred, "auc")@y.values[[1]]
 cat("AUC (ROCR) =", auc_rocr, "\n")
+
 
 
 
