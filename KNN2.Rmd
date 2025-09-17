@@ -1,0 +1,71 @@
+---
+title: "DataScienceC"
+output: html_document
+---
+# Dans un jeu de données de 6 variables on veut prédire si elles sont saines DIFF=0 ou défaillantes DIFF=1
+# Test avec knn 
+# Data Science Challenge
+
+# Importation du fichier
+
+```{r}
+library(readr)
+farms_train <- read_csv("farms_train.csv")
+View(farms_train)
+```
+
+# Modèle knn
+
+```{r}
+library(class)
+library(caret)
+set.seed(50)
+#sélection d'une partie de jeu de données 
+trainIndex <- createDataPartition(farms_train$DIFF, p = 0.7, list = FALSE)
+trainData <- farms_train [trainIndex, ]
+testData  <- farms_train [-trainIndex, ]
+#predicteurs
+pred <- c("R2","R7","R8","R17","R22","R32")
+# Variables explicatives (X) et cible (Y)
+x_train <- scale(trainData[,pred ])
+x_test  <- scale(testData[, pred],
+                 center = attr(x_train, "scaled:center"),
+                 scale  = attr(x_train, "scaled:scale"))
+
+y_train <- trainData$DIFF
+y_test  <- testData$DIFF
+
+# Modèle KNN avec k = 5
+knn_pred <- knn(train = x_train, test = x_test, cl = y_train, k = 5)
+
+# Regarder les prédictions
+head(knn_pred)
+
+
+```
+
+# graphe
+
+```{r}
+acc <- c()
+
+for (k in 1:150) {
+  knn_pred <- knn(train = x_train, test = x_test, cl = y_train, k = k)
+  acc[k] <- mean(knn_pred == y_test)  
+}
+
+# Afficher les accuracy
+acc[1:15]  # par ex. les 15 premiers
+
+plot(1:150, acc, type = "b", pch = 19, col = "blue",
+     xlab = "Nombre de voisins (k)",
+     ylab = "Accuracy",
+     main = "Performance du KNN selon k")
+```
+
+# calcul de l'accuracy
+
+```{r}
+mean(knn_pred == y_test)
+
+```
