@@ -178,7 +178,7 @@ x_all <- train_scaled[, -ncol(train_scaled)]
 y_all <- train_scaled$DIFF
 x_test <- test_scaled
 
-# Utiliser le meilleur K selon l’accuracy
+# Utiliser le meilleur K 
 knn_final <- knn(train=x_all, test=x_test, cl=y_all, k=best_k_err)
 
 soumission <- data.frame(ID = 1:nrow(farms_test),
