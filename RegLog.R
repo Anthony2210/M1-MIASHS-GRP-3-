@@ -87,11 +87,49 @@ plot(roc_obj_test, col = "blue", lwd = 2, main = "ROC sur données de test")
 abline(a=0, b=1, lty=2, col="red")
 text(0.6, 0.4, paste("AUC =", round(auc(roc_obj_test), 3)), col="blue")
 
+# Vérification par VC (10fold)
+# Savoir si le modèle est chanceux ou robuste
+x$DIFF <- factor(x$DIFF, levels = c(0,1), labels = c("No","Yes"))
+
+ctrl <- trainControl(
+  method = "cv",
+  number = 10,
+  classProbs = TRUE,
+  summaryFunction = twoClassSummary
+)
+
+modele_vc <- train(
+  DIFF ~ R2*R32 + R17,
+  data = x,
+  method = "glm",
+  family = binomial,
+  trControl = ctrl,
+  metric = "ROC"
+)
+
+print(modele_vc)
+
+# Résultat détaillés VC
+mean_auc <- mean(modele_vc$resample$ROC)
+sd_auc   <- sd(modele_vc$resample$ROC)
+
+cat("AUC moyenne (10-fold CV) :", round(mean_auc, 3), "\n")
+cat("Ecart-type :", round(sd_auc, 3), "\n")
+
+# Le modèle est robuste : moyenne des AUC proche de l'AUC trouvé par le modele en 75/25
+# + écarttype bas
+# on continue d'utiliser modele_inter comme modele final
+
+# Boxplot des AUC
+boxplot(modele_vc$resample$ROC,
+        main="Distribution des AUC (par VC, 10-fold)",
+        ylab="AUC")
+
 # Jeu de données test
 data_test=read.table("C:/Users/antoc/OneDrive/Bureau/m-1-miashs-1-2-journee-data-science/farms_test.csv",
                               sep = ",", dec = ".", header = T)
 
-# Prédictions avec le modèle entraîné sur le 70% train
+# Prédictions avec le modèle entraîné sur le 75% train
 proba_test_final <- predict(modele_inter, newdata = data_test, type = "response")
 
 classe_pred_test_final <- ifelse(proba_test_final > seuil_opt, 1, 0)
