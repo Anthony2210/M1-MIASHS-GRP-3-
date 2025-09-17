@@ -41,7 +41,7 @@ table(farms_train$DIFF)
 
 
 ggplot(farms_train, aes(x=factor(DIFF))) +
-  geom_bar(fill="steelblue") +
+  geom_bar(fill="blue") +
   labs(title="Répartition des exploitations (0 = saine, 1 = défaillante)",
        x="DIFF", y="Effectif") +
   theme_minimal()
@@ -81,19 +81,19 @@ for (i in 1:maxK) {
   txErreur[i] <- mean(knn_pred != y_valid)*100
 }
 
-plot(txErreur, type="b", col="dodgerblue", pch=20,
+plot(txErreur, type="b", col="blue", pch=20,
      xlab="K (voisins)", ylab="Taux d'erreur (%)",
      main="Erreur vs Nombre de voisins")
 abline(h=min(txErreur), col="red", lty=2)
 
 best_k_loop <- which.min(txErreur)
-cat("👉 Meilleur K trouvé automatiquement =", best_k_loop, 
+cat(" Meilleur K trouvé automatiquement =", best_k_loop, 
     "avec erreur =", min(txErreur), "%\n")
 
 ## 7. Choix final de K = 5
 
 k_fix <- 5
-cat("👉 Mais pour rester cohérent avec mes TP, j’utilise K =", k_fix, "\n")
+cat(" K =", k_fix, "\n")
 
 knn_pred_best <- knn(train=x_train, test=x_valid, cl=y_train, k=k_fix)
 confusionMatrix(knn_pred_best, y_valid)
