@@ -55,7 +55,7 @@ submission <- data.frame(
 
 # Export CSV
 write.csv(submission, "submission.csv", row.names = FALSE)
-cat("✅ Fichier 'submission.csv' créé dans :", getwd(), "\n")
+cat("Fichier 'submission.csv' créé dans :", getwd(), "\n")
 
 table(pred_test)
 
@@ -70,6 +70,7 @@ abline(a = 0, b = 1, lty = 2)
 
 auc_rocr <- performance(pred, "auc")@y.values[[1]]
 cat("AUC (ROCR) =", auc_rocr, "\n")
+
 
 
 
